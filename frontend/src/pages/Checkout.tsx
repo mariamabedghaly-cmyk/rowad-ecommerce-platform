@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react"
 import { Link, Navigate, useNavigate } from "react-router"
+import { ShieldCheck, CheckCircle2, CreditCard, Banknote, Smartphone, Lock, Loader2, Sparkles } from "lucide-react"
 
 import { formatPrice, useStore } from "../app/store"
 import StoreHeader from "../components/StoreHeader"
@@ -23,11 +24,14 @@ function Field({
   onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void
 }) {
   return (
-    <label
-      htmlFor={id}
-      className="block font-['Inter:Regular'] text-[13px] font-normal text-[#6b7587]"
-    >
-      {label}
+    <div>
+      <label
+        htmlFor={id}
+        className="block text-[12px] font-sans-ui font-bold text-[#121418] uppercase tracking-wider"
+      >
+        {label}
+        {required && <span className="text-[#C2410C] ml-0.5">*</span>}
+      </label>
       <input
         id={id}
         name={id}
@@ -36,9 +40,9 @@ function Field({
         placeholder={placeholder}
         value={value}
         onChange={onChange}
-        className="mt-2 h-12 w-full rounded-[10px] border border-[#e3e8f0] bg-white px-[15px] font-['Inter:Regular'] text-[14px] font-normal text-[#121f38] outline-none transition placeholder:text-[#6b7587] focus:border-[#1f4fc7] focus:ring-2 focus:ring-[#1f4fc7]/10"
+        className="mt-2 h-[48px] w-full rounded-[14px] border border-[#E8E5DC] bg-white px-4 font-sans-ui text-[16px] sm:text-[14px] text-[#121418] outline-none transition focus:border-[#1F4FC7] focus:ring-2 focus:ring-[#1F4FC7]/10 placeholder:text-[#6B707B]"
       />
-    </label>
+    </div>
   )
 }
 
@@ -60,23 +64,29 @@ export default function Checkout() {
   const [error, setError] = useState<string | null>(null)
   const [confirmedOrder, setConfirmedOrder] = useState<any | null>(null)
 
+  const activeOrderItems = products
+    .map((product, index) => ({
+      product: product.id,
+      title: product.name,
+      quantity: quantities[index] || 0,
+      price: product.price,
+      image: product.image,
+    }))
+    .filter((item) => item.quantity > 0)
+
   const handleSubmitOrder = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setError(null)
     setLoading(true)
 
-    // Build items from active cart
-    const orderItems = products
-      .map((product, index) => ({
-        product: product.id,
-        title: product.name,
-        quantity: quantities[index] || 0,
-        price: product.price,
-      }))
-      .filter((item) => item.quantity > 0)
+    const orderItems = activeOrderItems.map((item) => ({
+      product: item.product,
+      title: item.title,
+      quantity: item.quantity,
+      price: item.price,
+    }))
 
     try {
-      // Calls Order Service on Port 5005 (which calls Payment Service on Port 5003)
       const response = await orderApi.createOrder({
         shippingAddress: {
           street,
@@ -103,92 +113,75 @@ export default function Checkout() {
     }
   }
 
-  // If order confirmed, display the official receipt
+  // Official Receipt Screen on Confirmation
   if (confirmedOrder) {
     return (
-      <div className="min-h-dvh bg-[#f5f7fc] text-[#121f38]">
+      <div className="min-h-dvh bg-[#FAF9F6] text-[#121418]">
         <StoreHeader />
-        <main className="mx-auto max-w-[800px] px-5 py-16">
-          <div className="rounded-[20px] bg-white p-8 shadow-sm sm:p-12">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100 text-green-600">
-              <svg
-                className="h-8 w-8"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2.5"
-                  d="M5 13l4 4L19 7"
-                />
-              </svg>
+        <main className="mx-auto max-w-[760px] px-5 py-16">
+          <div className="rounded-[28px] border border-[#E8E5DC] bg-white p-8 sm:p-12 shadow-xs">
+            <div className="flex size-14 items-center justify-center rounded-full bg-[#ECFDF5] text-[#059669]">
+              <CheckCircle2 className="size-8" aria-hidden="true" />
             </div>
 
-            <h1 className="mt-6 font-['Inter:Bold'] text-[28px] font-bold text-[#121f38] sm:text-[32px]">
-              Order Confirmed & Paid! 🎉
+            <div className="mt-6 flex items-center gap-2">
+              <Sparkles className="size-5 text-[#C2410C]" aria-hidden="true" />
+              <span className="font-sans-ui text-[12px] font-bold text-[#C2410C] tracking-wider uppercase">
+                Payment Confirmed
+              </span>
+            </div>
+
+            <h1 className="mt-2 font-display text-[30px] sm:text-[36px] font-extrabold text-[#121418]">
+              Order Confirmed & Processed
             </h1>
-            <p className="mt-2 text-[14px] text-[#6b7587]">
-              Thank you for shopping with Rowad Store. Your payment was approved
-              and your order is being processed.
+            <p className="mt-2 text-[14px] font-sans-ui text-[#4A4D55]">
+              Thank you for shopping with Rowad Store. Your payment ledger entry was recorded and our fulfillment center is preparing your dispatch.
             </p>
 
-            <div className="mt-8 space-y-4 rounded-[12px] bg-[#f8fafc] p-6 text-[14px]">
-              <div className="flex justify-between border-b border-[#e3e8f0] pb-3">
-                <span className="font-medium text-[#6b7587]">Order Reference:</span>
-                <span className="font-bold text-[#121f38]">
+            <div className="mt-8 space-y-3.5 rounded-[20px] border border-[#E8E5DC] bg-[#FAF9F6] p-6 text-[14px] font-sans-ui">
+              <div className="flex justify-between border-b border-[#E8E5DC] pb-3">
+                <span className="text-[#4A4D55]">Order Reference:</span>
+                <span className="font-mono font-bold text-[#121418]">
                   {confirmedOrder._id || confirmedOrder.id || "ORD-SUCCESS"}
                 </span>
               </div>
 
-              <div className="flex justify-between border-b border-[#e3e8f0] pb-3">
-                <span className="font-medium text-[#6b7587]">Transaction ID:</span>
-                <span className="font-mono font-bold text-green-700">
+              <div className="flex justify-between border-b border-[#E8E5DC] pb-3">
+                <span className="text-[#4A4D55]">Payment Transaction:</span>
+                <span className="font-mono font-bold text-[#059669]">
                   {confirmedOrder.transactionId || "TXN-APPROVED"}
                 </span>
               </div>
 
-              <div className="flex justify-between border-b border-[#e3e8f0] pb-3">
-                <span className="font-medium text-[#6b7587]">Payment Status:</span>
-                <span className="rounded-full bg-green-100 px-3 py-0.5 text-xs font-bold text-green-800 uppercase">
+              <div className="flex justify-between border-b border-[#E8E5DC] pb-3">
+                <span className="text-[#4A4D55]">Payment Status:</span>
+                <span className="rounded-full bg-[#ECFDF5] px-3 py-0.5 text-[11px] font-bold text-[#059669] uppercase">
                   {confirmedOrder.paymentStatus || "Paid"}
                 </span>
               </div>
 
-              <div className="flex justify-between border-b border-[#e3e8f0] pb-3">
-                <span className="font-medium text-[#6b7587]">Delivery Country:</span>
-                <span className="font-bold text-[#121f38]">
+              <div className="flex justify-between border-b border-[#E8E5DC] pb-3">
+                <span className="text-[#4A4D55]">Destination:</span>
+                <span className="font-medium text-[#121418]">
+                  {confirmedOrder.shippingAddress?.street}, {confirmedOrder.shippingAddress?.city},{" "}
                   {confirmedOrder.shippingAddress?.country || country}
                 </span>
               </div>
 
-              <div className="flex justify-between border-b border-[#e3e8f0] pb-3">
-                <span className="font-medium text-[#6b7587]">Shipping Address:</span>
-                <span className="text-right text-[#121f38]">
-                  {confirmedOrder.shippingAddress?.street},{" "}
-                  {confirmedOrder.shippingAddress?.city}
-                </span>
-              </div>
-
-              <div className="flex justify-between pt-2">
-                <span className="text-[16px] font-bold text-[#121f38]">
-                  Total Amount Paid:
-                </span>
-                <span className="text-[18px] font-bold text-[#1f4fc7]">
+              <div className="flex justify-between pt-2 text-[16px]">
+                <span className="font-bold text-[#121418]">Total Paid:</span>
+                <span className="font-display font-extrabold text-[#121418]">
                   {formatPrice(confirmedOrder.totalPrice || subtotal)}
                 </span>
               </div>
             </div>
 
-            <div className="mt-8 flex gap-4">
-              <Link
-                to="/"
-                className="flex h-12 flex-1 items-center justify-center rounded-[10px] bg-[#1f4fc7] font-['Inter:Bold'] text-[14px] font-bold text-white transition hover:bg-[#173e9f]"
-              >
-                Continue Shopping
-              </Link>
-            </div>
+            <Link
+              to="/"
+              className="btn-tactile mt-8 flex min-h-[50px] w-full items-center justify-center rounded-full bg-[#121418] text-[14px] font-sans-ui font-bold text-white shadow-xs hover:bg-[#1F4FC7] cursor-pointer"
+            >
+              Continue Exploring Catalog
+            </Link>
           </div>
         </main>
       </div>
@@ -200,196 +193,225 @@ export default function Checkout() {
   }
 
   return (
-    <div className="min-h-dvh bg-white text-[#121f38]">
+    <div className="min-h-dvh bg-[#FAF9F6] text-[#121418]">
       <StoreHeader />
 
-      <main className="mx-auto max-w-[1440px] px-5 pb-16 sm:px-8 lg:px-[72px]">
-        <section className="mt-[22px]">
-          <h1 className="font-['Inter:Bold'] text-[30px] font-bold leading-tight">
-            Checkout
+      <main className="mx-auto max-w-[1440px] px-5 pb-20 sm:px-8 lg:px-[72px]">
+        <div className="mt-8 border-b border-[#E8E5DC] pb-4">
+          <h1 className="font-display text-[32px] sm:text-[40px] font-extrabold tracking-tight text-[#121418]">
+            Checkout & Dispatch
           </h1>
-          <p className="mt-[7px] font-['Inter:Regular'] text-[14px] font-normal text-[#6b7587]">
-            Complete your order with secure payment processing.
+          <p className="mt-1 font-sans-ui text-[14px] text-[#4A4D55]">
+            Finalize your shipping coordinates and payment method.
           </p>
-        </section>
+        </div>
 
         {error && (
-          <div className="mt-6 rounded-[12px] border border-red-200 bg-red-50 p-4 text-[14px] font-medium text-red-700">
+          <div
+            role="alert"
+            className="mt-6 rounded-[16px] border border-red-200 bg-red-50 p-4 text-[13px] font-sans-ui text-red-800"
+          >
             {error}
           </div>
         )}
 
-        <div className="mt-[50px] grid items-start gap-10 lg:grid-cols-[minmax(0,600px)_minmax(0,608px)] lg:gap-[88px]">
-          <form onSubmit={handleSubmitOrder}>
-            <section>
-              <h2 className="font-['Inter:Bold'] text-[20px] font-bold leading-6">
-                1. Contact information
+        <div className="mt-8 grid items-start gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:gap-14">
+          {/* Checkout Form */}
+          <form onSubmit={handleSubmitOrder} className="space-y-8">
+            {/* 1. Contact Information */}
+            <section
+              aria-labelledby="contact-heading"
+              className="rounded-[24px] border border-[#E8E5DC] bg-white p-6 sm:p-8 shadow-xs"
+            >
+              <h2 id="contact-heading" className="font-display text-[18px] font-bold text-[#121418]">
+                1. Contact Information
               </h2>
-              <div className="mt-5">
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 <Field
-                  id="email"
-                  label="Email address"
-                  placeholder="you@example.com"
+                  id="checkout-email"
+                  label="Email Address"
+                  placeholder="karim@example.com"
                   type="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                 />
-              </div>
-            </section>
-
-            <section className="mt-[30px]">
-              <h2 className="font-['Inter:Bold'] text-[20px] font-bold leading-6">
-                2. Shipping address
-              </h2>
-
-              <div className="mt-[18px] grid gap-5 sm:grid-cols-2">
                 <Field
-                  id="full-name"
-                  label="Full name"
-                  placeholder="Your full name"
-                  required
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                />
-                <Field
-                  id="phone"
-                  label="Phone number"
-                  placeholder="+20 1XX XXX XXXX"
+                  id="checkout-phone"
+                  label="Phone (for courier delivery)"
+                  placeholder="+20 100 000 0000"
                   type="tel"
                   required
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                 />
               </div>
+            </section>
 
-              {/* Country Selection Field */}
-              <div className="mt-5">
-                <label
-                  htmlFor="country"
-                  className="block font-['Inter:Regular'] text-[13px] font-normal text-[#6b7587]"
-                >
-                  Country / Region
-                  <select
-                    id="country"
-                    name="country"
-                    required
-                    value={country}
-                    onChange={(e) => setCountry(e.target.value)}
-                    className="mt-2 h-12 w-full rounded-[10px] border border-[#e3e8f0] bg-white px-[15px] font-['Inter:Regular'] text-[14px] font-normal text-[#121f38] outline-none transition focus:border-[#1f4fc7] focus:ring-2 focus:ring-[#1f4fc7]/10"
-                  >
-                    <option value="Egypt">Egypt (جمهورية مصر العربية)</option>
-                    <option value="Saudi Arabia">Saudi Arabia (المملكة العربية السعودية)</option>
-                    <option value="United Arab Emirates">United Arab Emirates (الإمارات)</option>
-                    <option value="Kuwait">Kuwait (الكويت)</option>
-                    <option value="Qatar">Qatar (قطر)</option>
-                    <option value="Jordan">Jordan (الأردن)</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </label>
-              </div>
-
-              <div className="mt-5">
+            {/* 2. Shipping Address */}
+            <section
+              aria-labelledby="shipping-heading"
+              className="rounded-[24px] border border-[#E8E5DC] bg-white p-6 sm:p-8 shadow-xs"
+            >
+              <h2 id="shipping-heading" className="font-display text-[18px] font-bold text-[#121418]">
+                2. Shipping Address
+              </h2>
+              <div className="mt-4 space-y-4">
                 <Field
-                  id="street-address"
-                  label="Street address"
-                  placeholder="Building, street, apartment"
+                  id="checkout-full-name"
+                  label="Recipient Full Name"
+                  placeholder="Karim Mostafa"
+                  required
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                />
+
+                <Field
+                  id="checkout-street"
+                  label="Street Address & Apt"
+                  placeholder="15 El Nil Street, Apt 4B, Zamalek"
                   required
                   value={street}
                   onChange={(e) => setStreet(e.target.value)}
                 />
-              </div>
 
-              <div className="mt-5 grid gap-5 sm:grid-cols-2">
-                <Field
-                  id="city"
-                  label="City"
-                  placeholder="Cairo / Alexandria / Riyadh"
-                  required
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                />
-                <Field
-                  id="postal-code"
-                  label="Postal code (optional)"
-                  placeholder="Postal code"
-                  value={postalCode}
-                  onChange={(e) => setPostalCode(e.target.value)}
-                />
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <Field
+                    id="checkout-city"
+                    label="City / Governorate"
+                    placeholder="Cairo"
+                    required
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                  />
+                  <Field
+                    id="checkout-country"
+                    label="Country"
+                    placeholder="Egypt"
+                    required
+                    value={country}
+                    onChange={(e) => setCountry(e.target.value)}
+                  />
+                  <Field
+                    id="checkout-postal-code"
+                    label="Postal Code"
+                    placeholder="11211"
+                    value={postalCode}
+                    onChange={(e) => setPostalCode(e.target.value)}
+                  />
+                </div>
               </div>
             </section>
 
-            <section className="mt-[30px]">
-              <h2 className="font-['Inter:Bold'] text-[20px] font-bold leading-6">
-                3. Payment method
+            {/* 3. Payment Method */}
+            <section
+              aria-labelledby="payment-heading"
+              className="rounded-[24px] border border-[#E8E5DC] bg-white p-6 sm:p-8 shadow-xs"
+            >
+              <h2 id="payment-heading" className="font-display text-[18px] font-bold text-[#121418]">
+                3. Payment Method
               </h2>
-              <div className="mt-4 space-y-3">
-                <label className="flex items-center gap-3 rounded-[10px] border border-[#e3e8f0] p-4 cursor-pointer hover:border-[#1f4fc7]">
-                  <input
-                    type="radio"
-                    name="paymentMethod"
-                    value="CreditCard"
-                    checked={paymentMethod === "CreditCard"}
-                    onChange={(e) => setPaymentMethod(e.target.value)}
-                    className="h-4 w-4 text-[#1f4fc7]"
-                  />
-                  <div>
-                    <p className="text-[14px] font-bold">Credit / Debit Card</p>
-                    <p className="text-[12px] text-[#6b7587]">
-                      Simulated instant payment via .NET Payment Service
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                {[
+                  { id: "CreditCard", label: "Credit Card", icon: CreditCard, desc: "Visa, Mastercard, Mada" },
+                  { id: "Instapay", label: "Instapay", icon: Smartphone, desc: "Instant transfer" },
+                  { id: "CashOnDelivery", label: "Cash on Delivery", icon: Banknote, desc: "Pay on arrival" },
+                ].map((method) => (
+                  <button
+                    type="button"
+                    key={method.id}
+                    onClick={() => setPaymentMethod(method.id)}
+                    aria-pressed={paymentMethod === method.id}
+                    className={`p-4 rounded-[16px] border text-left transition-all cursor-pointer min-h-[48px] ${
+                      paymentMethod === method.id
+                        ? "border-[#121418] bg-[#F4F2EC] ring-1 ring-[#121418]"
+                        : "border-[#E8E5DC] bg-white hover:bg-[#FAF9F6]"
+                    }`}
+                  >
+                    <method.icon className="size-5 text-[#C2410C]" aria-hidden="true" />
+                    <p className="mt-3 font-sans-ui text-[13px] font-bold text-[#121418]">
+                      {method.label}
                     </p>
-                  </div>
-                </label>
+                    <p className="mt-0.5 text-[11px] text-[#4A4D55]">{method.desc}</p>
+                  </button>
+                ))}
               </div>
             </section>
 
             <button
               type="submit"
               disabled={loading}
-              className="mt-[37px] h-[54px] w-full rounded-[12px] bg-[#1f4fc7] font-['Inter:Bold'] text-[14px] font-bold text-white transition hover:bg-[#173e9f] active:scale-[0.99] disabled:opacity-50"
+              aria-busy={loading}
+              className="btn-tactile flex min-h-[54px] w-full items-center justify-center gap-2 rounded-full bg-[#121418] text-[15px] font-sans-ui font-bold text-white shadow-xs hover:bg-[#1F4FC7] disabled:opacity-50 cursor-pointer"
             >
-              {loading
-                ? "Processing Order & Payment..."
-                : `Pay ${formatPrice(subtotal)} & Complete Order`}
+              {loading ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                  <span>Recording Order in Ledger...</span>
+                </>
+              ) : (
+                <>
+                  <Lock className="size-4" aria-hidden="true" />
+                  <span>Place Order · {formatPrice(subtotal)}</span>
+                </>
+              )}
             </button>
-            <p className="mt-[17px] font-['Inter:Regular'] text-[12px] font-normal text-[#6b7587]">
-              Transactions are verified and processed through our microservices architecture.
-            </p>
           </form>
 
-          <aside className="min-h-[330px] rounded-[18px] bg-[#f5f7fc] p-8">
-            <h2 className="font-['Inter:Bold'] text-[22px] font-bold leading-tight">
-              Order summary
+          {/* Sticky Order Review */}
+          <aside className="sticky top-28 rounded-[26px] border border-[#E8E5DC] bg-white p-6 sm:p-8 shadow-xs">
+            <h2 className="font-display text-[20px] font-bold text-[#121418]">
+              Order Summary ({cartCount} {cartCount === 1 ? "item" : "items"})
             </h2>
 
-            <dl className="mt-[25px] space-y-[25px]">
-              <div className="flex items-center justify-between gap-4">
-                <dt className="font-['Inter:Regular'] text-[14px] font-normal text-[#6b7587]">
-                  {cartCount} items
-                </dt>
-                <dd className="font-['Inter:Bold'] text-[14px] font-bold">
-                  {formatPrice(subtotal)}
-                </dd>
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <dt className="font-['Inter:Regular'] text-[14px] font-normal text-[#6b7587]">
-                  Shipping
-                </dt>
-                <dd className="font-['Inter:Regular'] text-[14px] font-normal text-green-700 font-semibold">
-                  Free Delivery
-                </dd>
-              </div>
-            </dl>
+            <div className="mt-6 divide-y divide-[#E8E5DC]">
+              {activeOrderItems.map((item) => (
+                <div key={item.title} className="flex items-center gap-3.5 py-3">
+                  <div className="size-14 shrink-0 overflow-hidden rounded-[10px] bg-[#F4F2EC]">
+                    <img
+                      src={item.image}
+                      alt={item.title}
+                      className="size-full object-cover"
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-sans-ui text-[13px] font-bold text-[#121418] truncate">
+                      {item.title}
+                    </p>
+                    <p className="text-[12px] text-[#4A4D55]">Qty: {item.quantity}</p>
+                  </div>
+                  <p className="font-display text-[14px] font-bold text-[#121418]">
+                    {formatPrice(item.price * item.quantity)}
+                  </p>
+                </div>
+              ))}
+            </div>
 
-            <div className="mt-[29px] h-px bg-[#e3e8f0]" />
+            <div className="mt-6 border-t border-[#E8E5DC] pt-5 space-y-3 text-[14px] font-sans-ui">
+              <div className="flex justify-between text-[#4A4D55]">
+                <span>Subtotal</span>
+                <span className="font-bold text-[#121418]">{formatPrice(subtotal)}</span>
+              </div>
+              <div className="flex justify-between text-[#4A4D55]">
+                <span>Express Courier</span>
+                <span className="font-bold text-[#059669]">
+                  {subtotal >= 1500 ? "Free" : "EGP 50"}
+                </span>
+              </div>
+            </div>
 
-            <div className="mt-[23px] flex items-center justify-between gap-4">
-              <p className="font-['Inter:Bold'] text-[16px] font-bold">
-                Estimated total
-              </p>
-              <p className="font-['Inter:Bold'] text-[20px] font-bold text-[#1f4fc7]">
-                {formatPrice(subtotal)}
-              </p>
+            <div className="my-5 h-px bg-[#E8E5DC]" />
+
+            <div className="flex items-baseline justify-between">
+              <span className="font-sans-ui text-[15px] font-bold text-[#121418]">Total Due</span>
+              <span className="font-display text-[24px] font-extrabold text-[#121418]">
+                {formatPrice(subtotal + (subtotal >= 1500 ? 0 : 50))}
+              </span>
+            </div>
+
+            <div className="mt-6 flex items-center justify-center gap-2 rounded-full bg-[#FAF9F6] p-3 text-[12px] font-sans-ui text-[#4A4D55]">
+              <ShieldCheck className="size-4 text-[#059669]" aria-hidden="true" />
+              <span>Direct Bank-Grade Transaction Protection</span>
             </div>
           </aside>
         </div>

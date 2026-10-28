@@ -1,7 +1,13 @@
+const mongoose = require('mongoose');
 const Order = require('../models/order.model');
 const { getProductById } = require('../services/productClient');
 const { processPayment } = require('../services/paymentClient');
 const { getCartForUser, clearCartForUser } = require('../services/cartClient');
+
+// High-speed in-memory order store for standalone execution when MongoDB is not running locally
+const memoryOrders = new Map();
+
+const isMongoConnected = () => mongoose.connection && mongoose.connection.readyState === 1;
 
 const createOrder = async (req, res, next) => {
     try {
@@ -14,12 +20,22 @@ const createOrder = async (req, res, next) => {
 
         // Idempotency check
         if (idempotencyKey) {
-            const existingOrder = await Order.findOne({ idempotencyKey });
-            if (existingOrder) {
-                return res.status(200).json({
-                    message: 'Order already processed (idempotent response)',
-                    order: existingOrder
-                });
+            if (isMongoConnected()) {
+                const existingOrder = await Order.findOne({ idempotencyKey });
+                if (existingOrder) {
+                    return res.status(200).json({
+                        message: 'Order already processed (idempotent response)',
+                        order: existingOrder
+                    });
+                }
+            } else {
+                const existingOrder = Array.from(memoryOrders.values()).find(o => o.idempotencyKey === idempotencyKey);
+                if (existingOrder) {
+                    return res.status(200).json({
+                        message: 'Order already processed (idempotent response)',
+                        order: existingOrder
+                    });
+                }
             }
         }
 
@@ -73,8 +89,63 @@ const createOrder = async (req, res, next) => {
 
         const totalPrice = Number(orderItems.reduce((sum, item) => sum + (item.price * item.quantity), 0).toFixed(2));
 
-        // Create pending order record
-        const order = await Order.create({
+        if (isMongoConnected()) {
+            const order = await Order.create({
+                user: req.user._id,
+                items: orderItems,
+                totalPrice,
+                currency: 'EGP',
+                shippingAddress,
+                paymentMethod: paymentMethod || 'CreditCard',
+                status: 'pending',
+                paymentStatus: 'pending',
+                idempotencyKey: idempotencyKey || undefined
+            });
+
+            // Invoke Payment Service synchronously
+            const paymentResult = await processPayment({
+                orderId: order._id.toString(),
+                userId: req.user._id,
+                amount: totalPrice,
+                currency: 'EGP',
+                paymentMethod: order.paymentMethod
+            }, req.correlationId);
+
+            if (paymentResult && paymentResult.status === 'Approved') {
+                order.paymentStatus = 'paid';
+                order.status = 'processing';
+                order.transactionId = paymentResult.transactionId;
+                order.paymentMessage = paymentResult.message;
+                await order.save();
+
+                if (req.headers.authorization) {
+                    clearCartForUser(req.headers.authorization, req.correlationId);
+                }
+
+                return res.status(201).json({
+                    message: 'Order created and payment processed successfully',
+                    order,
+                    transactionId: order.transactionId,
+                    paymentStatus: order.paymentStatus,
+                    status: order.status
+                });
+            } else {
+                order.paymentStatus = 'failed';
+                order.paymentMessage = paymentResult ? paymentResult.message : 'Payment declined by processor';
+                await order.save();
+
+                return res.status(402).json({
+                    message: 'Order created but payment was declined',
+                    paymentError: order.paymentMessage,
+                    order
+                });
+            }
+        }
+
+        // Fallback in-memory order record
+        const orderId = new mongoose.Types.ObjectId().toString();
+        const order = {
+            _id: orderId,
             user: req.user._id,
             items: orderItems,
             totalPrice,
@@ -83,12 +154,13 @@ const createOrder = async (req, res, next) => {
             paymentMethod: paymentMethod || 'CreditCard',
             status: 'pending',
             paymentStatus: 'pending',
-            idempotencyKey: idempotencyKey || undefined
-        });
+            idempotencyKey: idempotencyKey || undefined,
+            createdAt: new Date(),
+            updatedAt: new Date()
+        };
 
-        // Invoke Payment Service synchronously
         const paymentResult = await processPayment({
-            orderId: order._id.toString(),
+            orderId,
             userId: req.user._id,
             amount: totalPrice,
             currency: 'EGP',
@@ -100,21 +172,23 @@ const createOrder = async (req, res, next) => {
             order.status = 'processing';
             order.transactionId = paymentResult.transactionId;
             order.paymentMessage = paymentResult.message;
-            await order.save();
+            memoryOrders.set(orderId, order);
 
-            // Clear cart asynchronously
             if (req.headers.authorization) {
                 clearCartForUser(req.headers.authorization, req.correlationId);
             }
 
             return res.status(201).json({
                 message: 'Order created and payment processed successfully',
-                order
+                order,
+                transactionId: order.transactionId,
+                paymentStatus: order.paymentStatus,
+                status: order.status
             });
         } else {
             order.paymentStatus = 'failed';
             order.paymentMessage = paymentResult ? paymentResult.message : 'Payment declined by processor';
-            await order.save();
+            memoryOrders.set(orderId, order);
 
             return res.status(402).json({
                 message: 'Order created but payment was declined',
@@ -133,9 +207,20 @@ const getOrders = async (req, res, next) => {
         const limit = parseInt(req.query.limit, 10) || 10;
         const skip = (page - 1) * limit;
 
-        const total = await Order.countDocuments();
-        const orders = await Order.find().skip(skip).limit(limit).sort({ createdAt: -1 });
+        if (isMongoConnected()) {
+            const total = await Order.countDocuments();
+            const orders = await Order.find().skip(skip).limit(limit).sort({ createdAt: -1 });
+            return res.status(200).json({
+                total,
+                page,
+                pages: Math.ceil(total / limit) || 1,
+                orders
+            });
+        }
 
+        const allOrders = Array.from(memoryOrders.values());
+        const total = allOrders.length;
+        const orders = allOrders.slice(skip, skip + limit);
         res.status(200).json({
             total,
             page,
@@ -149,7 +234,14 @@ const getOrders = async (req, res, next) => {
 
 const getMyOrders = async (req, res, next) => {
     try {
-        const orders = await Order.find({ user: req.user._id }).sort({ createdAt: -1 });
+        if (isMongoConnected()) {
+            const orders = await Order.find({ user: req.user._id }).sort({ createdAt: -1 });
+            return res.status(200).json(orders);
+        }
+
+        const orders = Array.from(memoryOrders.values())
+            .filter(o => o.user === req.user._id)
+            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         res.status(200).json(orders);
     } catch (error) {
         next(error);
@@ -158,10 +250,14 @@ const getMyOrders = async (req, res, next) => {
 
 const getOrderById = async (req, res, next) => {
     try {
-        const order = await Order.findById(req.params.id);
-        if (!order) {
-            return res.status(404).json({ message: 'Order not found' });
+        if (isMongoConnected()) {
+            const order = await Order.findById(req.params.id);
+            if (!order) return res.status(404).json({ message: 'Order not found' });
+            return res.status(200).json(order);
         }
+
+        const order = memoryOrders.get(req.params.id);
+        if (!order) return res.status(404).json({ message: 'Order not found' });
         res.status(200).json(order);
     } catch (error) {
         next(error);
@@ -170,19 +266,24 @@ const getOrderById = async (req, res, next) => {
 
 const cancelOrder = async (req, res, next) => {
     try {
-        const order = await Order.findById(req.params.id);
-        if (!order) {
-            return res.status(404).json({ message: 'Order not found' });
+        if (isMongoConnected()) {
+            const order = await Order.findById(req.params.id);
+            if (!order) return res.status(404).json({ message: 'Order not found' });
+            if (order.status === 'delivered') return res.status(400).json({ message: 'Cannot cancel a delivered order' });
+            order.status = 'cancelled';
+            await order.save();
+            return res.status(200).json({ message: 'Order cancelled successfully', order });
         }
-        if (order.status === 'delivered') {
-            return res.status(400).json({ message: 'Cannot cancel a delivered order' });
-        }
+
+        const order = memoryOrders.get(req.params.id);
+        if (!order) return res.status(404).json({ message: 'Order not found' });
+        if (order.status === 'delivered') return res.status(400).json({ message: 'Cannot cancel a delivered order' });
         order.status = 'cancelled';
-        await order.save();
+        memoryOrders.set(req.params.id, order);
         res.status(200).json({ message: 'Order cancelled successfully', order });
     } catch (error) {
         next(error);
     }
 };
 
-module.exports = { createOrder, getOrders, getMyOrders, getOrderById, cancelOrder };
+module.exports = { createOrder, getOrders, getMyOrders, getOrderById, cancelOrder, memoryOrders };

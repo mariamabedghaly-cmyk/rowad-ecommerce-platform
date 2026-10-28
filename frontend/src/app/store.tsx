@@ -9,7 +9,7 @@ import {
 } from "react"
 
 import CartNotification from "../components/CartNotification"
-import { productApi } from "../api/client"
+import { productApi, cartApi } from "../api/client"
 
 export const products = [
   {
@@ -42,7 +42,7 @@ export const products = [
     name: "Everyday Carry Tote",
     rating: "4.6",
     price: 650,
-    image: "/assets/6ce96.png",
+    image: "/assets/tote.png",
   },
 ]
 
@@ -104,7 +104,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           rating: item.rating ? String(item.rating) : "4.8",
           price: Number(item.price) || 999,
           image: item.image && item.image !== "no-image.jpg"
-            ? (item.image.startsWith("http") ? item.image : `/assets/${item.image}`)
+            ? (item.image.startsWith("http") || item.image.startsWith("/") ? item.image : `/assets/${item.image}`)
             : (products[idx % products.length]?.image || "/assets/6ce96.png"),
         }))
         setStoreProducts(mapped)
@@ -163,27 +163,47 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             itemIndex === index ? value + quantity : value,
           ),
         )
+        const target = storeProducts[index]
+        if (target?.id) {
+          cartApi.addToCart(target.id, quantity).catch(() => {})
+        }
         setNotification({
           id: ++notificationId.current,
-          message: `${storeProducts[index]?.name || "Item"} added to your cart.`,
+          message: `${target?.name || "Item"} added to your cart.`,
         })
       },
-      updateQuantity: (index, quantity) =>
+      updateQuantity: (index, quantity) => {
         setQuantities((current) =>
           current.map((value, itemIndex) =>
             itemIndex === index ? Math.max(0, quantity) : value,
           ),
-        ),
+        )
+        const target = storeProducts[index]
+        if (target?.id) {
+          if (quantity > 0) {
+            cartApi.updateItem(target.id, quantity).catch(() => {})
+          } else {
+            cartApi.removeItem(target.id).catch(() => {})
+          }
+        }
+      },
       removeProduct: (index) => {
         setQuantities((current) =>
           current.map((value, itemIndex) => (itemIndex === index ? 0 : value)),
         )
+        const target = storeProducts[index]
+        if (target?.id) {
+          cartApi.removeItem(target.id).catch(() => {})
+        }
         setNotification({
           id: ++notificationId.current,
-          message: `${storeProducts[index]?.name || "Item"} removed from your cart.`,
+          message: `${target?.name || "Item"} removed from your cart.`,
         })
       },
-      resetCart: () => setQuantities(new Array(storeProducts.length).fill(0)),
+      resetCart: () => {
+        setQuantities(new Array(storeProducts.length).fill(0))
+        cartApi.clearCart().catch(() => {})
+      },
     }
   }, [notification, quantities, storeProducts, user])
 

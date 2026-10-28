@@ -1,4 +1,4 @@
-import { CheckCircle2 } from "lucide-react"
+import { CheckCircle2, ShoppingBag } from "lucide-react"
 
 type CartNotificationProps = {
   notification: {
@@ -17,12 +17,12 @@ export default function CartNotification({
       key={notification.id}
       role="status"
       aria-live="polite"
-      className="fixed top-5 right-5 z-50 flex max-w-[360px] items-center gap-3 rounded-[14px] border border-[#dce5f4] bg-white px-4 py-3.5 text-[#121f38] shadow-[0_16px_45px_rgba(18,31,56,0.16)]"
+      className="fixed bottom-6 right-6 z-50 flex max-w-[380px] items-center gap-3.5 rounded-full border border-[#E8E5DC] bg-[#121418] px-5 py-3 text-white shadow-xl backdrop-blur-md animate-in fade-in slide-in-from-bottom-3 duration-300"
     >
-      <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#eaf7ef] text-[#1a7a47]">
-        <CheckCircle2 aria-hidden="true" size={18} strokeWidth={2.2} />
+      <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-[#C2410C] text-white">
+        <ShoppingBag className="size-3.5" />
       </span>
-      <p className="font-['Inter:Bold'] text-[13px] font-bold leading-5">
+      <p className="font-sans-ui text-[13px] font-semibold leading-snug">
         {notification.message}
       </p>
     </div>

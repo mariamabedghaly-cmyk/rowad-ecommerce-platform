@@ -49,7 +49,7 @@ export const authApi = {
 export const productApi = {
   async getProducts(params?: { search?: string; category?: string }) {
     try {
-      const url = new URL(`${API_CONFIG.PRODUCT_SERVICE_URL}/api/products`)
+      const url = new URL(`${API_CONFIG.PRODUCT_SERVICE_URL}/api/products/`)
       if (params?.search) url.searchParams.set("search", params.search)
       if (params?.category) url.searchParams.set("category", params.category)
 
@@ -76,7 +76,8 @@ export const productApi = {
 
   async getCategories() {
     try {
-      const res = await fetch(`${API_CONFIG.PRODUCT_SERVICE_URL}/api/categories`)
+      const url = new URL(`${API_CONFIG.PRODUCT_SERVICE_URL}/api/categories/`)
+      const res = await fetch(url.toString())
       if (!res.ok) return null
       const data = await res.json()
       return data.categories || data
