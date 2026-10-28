@@ -1,0 +1,10 @@
+{
+  "description": "An online storefront for shoppers to browse and purchase products, with a streamlined shopping experience that makes finding everyday essentials easier.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
