@@ -1,9 +1,9 @@
 export const API_CONFIG = {
-  AUTH_SERVICE_URL: import.meta.env.VITE_AUTH_SERVICE_URL || "http://localhost:5001",
-  PRODUCT_SERVICE_URL: import.meta.env.VITE_PRODUCT_SERVICE_URL || "http://localhost:5002",
-  PAYMENT_SERVICE_URL: import.meta.env.VITE_PAYMENT_SERVICE_URL || "http://localhost:5003",
-  CART_SERVICE_URL: import.meta.env.VITE_CART_SERVICE_URL || "http://localhost:5004",
-  ORDER_SERVICE_URL: import.meta.env.VITE_ORDER_SERVICE_URL || "http://localhost:5005",
+  AUTH_SERVICE_URL: import.meta.env.VITE_AUTH_SERVICE_URL ?? "http://localhost:5001",
+  PRODUCT_SERVICE_URL: import.meta.env.VITE_PRODUCT_SERVICE_URL ?? "http://localhost:5002",
+  PAYMENT_SERVICE_URL: import.meta.env.VITE_PAYMENT_SERVICE_URL ?? "http://localhost:5003",
+  CART_SERVICE_URL: import.meta.env.VITE_CART_SERVICE_URL ?? "http://localhost:5004",
+  ORDER_SERVICE_URL: import.meta.env.VITE_ORDER_SERVICE_URL ?? "http://localhost:5005",
 }
 
 function getAuthHeader(): Record<string, string> {
@@ -49,7 +49,7 @@ export const authApi = {
 export const productApi = {
   async getProducts(params?: { search?: string; category?: string }) {
     try {
-      const url = new URL(`${API_CONFIG.PRODUCT_SERVICE_URL}/api/products/`)
+      const url = new URL(`${API_CONFIG.PRODUCT_SERVICE_URL}/api/products/`, window.location.origin)
       if (params?.search) url.searchParams.set("search", params.search)
       if (params?.category) url.searchParams.set("category", params.category)
 
@@ -76,7 +76,7 @@ export const productApi = {
 
   async getCategories() {
     try {
-      const url = new URL(`${API_CONFIG.PRODUCT_SERVICE_URL}/api/categories/`)
+      const url = new URL(`${API_CONFIG.PRODUCT_SERVICE_URL}/api/categories/`, window.location.origin)
       const res = await fetch(url.toString())
       if (!res.ok) return null
       const data = await res.json()
