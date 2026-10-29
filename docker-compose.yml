@@ -1,0 +1,130 @@
+name: rowad-ecommerce
+
+x-node-env: &node-env
+  NODE_ENV: production
+  JWT_SECRET: ${JWT_SECRET:-dev_only_secret}
+
+services:
+  # ---------------- Database ----------------
+  mongo:
+    image: mongo:7
+    container_name: rowad-mongo
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+    networks: [backend]
+
+  # ---------------- Backend services ----------------
+  auth-user-service:
+    build: ./backend/auth-user-service
+    image: ${DOCKERHUB_USER:-local}/rowad-auth-user-service:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      <<: *node-env
+      PORT: 5001
+      MONGO_URI: mongodb://mongo:27017/ecommerce_auth_db
+      JWT_EXPIRES_IN: 30d
+      FRONTEND_URL: http://localhost
+      BREVO_SMTP_USER: ${BREVO_SMTP_USER:-}
+      BREVO_SMTP_PASS: ${BREVO_SMTP_PASS:-}
+    depends_on:
+      mongo: { condition: service_healthy }
+    ports: ["127.0.0.1:5001:5001"]
+    networks: [backend]
+
+  product-search-service:
+    build: ./backend/product-search-service
+    image: ${DOCKERHUB_USER:-local}/rowad-product-search-service:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      PORT: 5002
+      HOST: 0.0.0.0
+      MONGO_URI: mongodb://mongo:27017
+      DB_NAME: ecommerce_products_db
+      DEBUG: "False"
+    depends_on:
+      mongo: { condition: service_healthy }
+    ports: ["127.0.0.1:5002:5002"]
+    networks: [backend]
+
+  payment-service:
+    build: ./backend/payment-service
+    image: ${DOCKERHUB_USER:-local}/rowad-payment-service:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__DefaultConnection: Data Source=/app/data/payments.db
+      PaymentGateway__AutoApproveThreshold: "10000.00"
+    volumes:
+      - payment-data:/app/data
+    ports: ["127.0.0.1:5003:5003"]
+    networks: [backend]
+
+  cart-service:
+    build: ./backend/cart-service
+    image: ${DOCKERHUB_USER:-local}/rowad-cart-service:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      <<: *node-env
+      PORT: 5004
+      MONGO_URI: mongodb://mongo:27017/ecommerce_cart_db
+      PRODUCT_SERVICE_URL: http://product-search-service:5002
+    depends_on:
+      mongo: { condition: service_healthy }
+      product-search-service: { condition: service_healthy }
+    ports: ["127.0.0.1:5004:5004"]
+    networks: [backend]
+
+  order-service:
+    build: ./backend/order-service
+    image: ${DOCKERHUB_USER:-local}/rowad-order-service:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      <<: *node-env
+      PORT: 5005
+      MONGO_URI: mongodb://mongo:27017/ecommerce_orders_db
+      PRODUCT_SERVICE_URL: http://product-search-service:5002
+      PAYMENT_SERVICE_URL: http://payment-service:5003
+      CART_SERVICE_URL: http://cart-service:5004
+    depends_on:
+      mongo: { condition: service_healthy }
+      product-search-service: { condition: service_healthy }
+      payment-service: { condition: service_healthy }
+      cart-service: { condition: service_healthy }
+    ports: ["127.0.0.1:5005:5005"]
+    networks: [backend]
+
+  # ---------------- Frontend + Nginx ----------------
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # empty = same-origin, Nginx proxies /api/* to the services
+        VITE_AUTH_SERVICE_URL: ""
+        VITE_PRODUCT_SERVICE_URL: ""
+        VITE_PAYMENT_SERVICE_URL: ""
+        VITE_CART_SERVICE_URL: ""
+        VITE_ORDER_SERVICE_URL: ""
+    image: ${DOCKERHUB_USER:-local}/rowad-frontend:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    depends_on:
+      - auth-user-service
+      - product-search-service
+      - payment-service
+      - cart-service
+      - order-service
+    ports: ["80:80"]
+    networks: [backend]
+
+volumes:
+  mongo-data:
+  payment-data:
+
+networks:
+  backend:

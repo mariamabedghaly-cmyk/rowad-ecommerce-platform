@@ -61,6 +61,7 @@ rowad-ecommerce-platform/
 ### 1. Run the Backend Microservices (5 Terminals or Services)
 
 #### Auth & User Service (Port 5001):
+
 ```bash
 cd backend/auth-user-service
 npm install
@@ -68,6 +69,7 @@ npm start
 ```
 
 #### Product & Search Service (Port 5002):
+
 ```bash
 cd backend/product-search-service
 python -m venv .venv
@@ -77,12 +79,14 @@ uvicorn app.main:app --host 0.0.0.0 --port 5002
 ```
 
 #### Payment Service (Port 5003):
+
 ```bash
 cd backend/payment-service
 dotnet run
 ```
 
 #### Cart Service (Port 5004):
+
 ```bash
 cd backend/cart-service
 npm install
@@ -90,6 +94,7 @@ npm start
 ```
 
 #### Order Service (Port 5005):
+
 ```bash
 cd backend/order-service
 npm install
@@ -112,12 +117,12 @@ Open your browser at: **`http://localhost:5173`**
 
 ## 🩺 Microservices Health Probes
 
-* **Auth Service:** `GET http://localhost:5001/health`
-* **Product Service:** `GET http://localhost:5002/health`
-* **Payment Service:** `GET http://localhost:5003/health`
-* **Cart Service:** `GET http://localhost:5004/health`
-* **Order Service:** `GET http://localhost:5005/health`
-* **Interactive API Docs (FastAPI):** `http://localhost:5002/docs`
+- **Auth Service:** `GET http://localhost:5001/health`
+- **Product Service:** `GET http://localhost:5002/health`
+- **Payment Service:** `GET http://localhost:5003/health`
+- **Cart Service:** `GET http://localhost:5004/health`
+- **Order Service:** `GET http://localhost:5005/health`
+- **Interactive API Docs (FastAPI):** `http://localhost:5002/docs`
 
 ---
 
